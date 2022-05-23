@@ -1,12 +1,15 @@
 
+
 const fetch = require('node-fetch');
+const cardDone = require('./cardsInDone')
+
 
 const apiURL = "https://api.notion.com/v1/databases/04b356ab699543a7824fef7294344e5b/query";
 
-const listSquads = ['Work squad', 'Talent squad', 'UGG squad', 'Genome squad']
+const listSquads = ['Applicants acquisition squad','Work squad', 'Talent squad', 'UGG squad', 'Genome squad']
 
 
-function request(body){
+function request(body) {
     return {
         method: 'POST',
         headers: {
@@ -23,7 +26,7 @@ const done = "✅   Done"
 const optimization_analysis = "🏃 Optimization analysis"
 const feature_flag_release = "🚩 Feature flag release"
 
-function body(next_cursor, has_more, squadBody, bugOrDone){
+function body(next_cursor, has_more, squadBody, bugOrDone) {
     let content = {
         "filter": {
             "and": [
@@ -76,19 +79,19 @@ function body(next_cursor, has_more, squadBody, bugOrDone){
 
 
 
-async function requestFunction (squadBody, bugOrDone){
-    const resultTemp = await fetch(apiURL, request(body(next_cursor,result_hash_more,squadBody,bugOrDone)))
+async function requestFunction(squadBody, bugOrDone) {
+    const resultTemp = await fetch(apiURL, request(body(next_cursor, result_hash_more, squadBody, bugOrDone)))
         .then(response => response.json())
         .then(response => { return (response) })
+/*     console.log(resultTemp);
+    console.log(` has_more in request : ${resultTemp.has_more} `) */
 
-        console.log(resultTemp)
-
-        if (resultTemp.has_more) {
-            next_cursor = resultTemp.next_cursor
-            result_hash_more = resultTemp.has_more
-        } else {
-            result_hash_more = resultTemp.has_more
-        }
+    if (resultTemp.has_more) {
+        next_cursor = resultTemp.next_cursor
+        result_hash_more = resultTemp.has_more
+    } else {
+        result_hash_more = resultTemp.has_more
+    }
 
 
     return resultTemp;
@@ -96,9 +99,21 @@ async function requestFunction (squadBody, bugOrDone){
 }
 
 
+
+
+var result_hash_more = false;
+var next_cursor = ''
+let workSquadDone = [];
+let talentSquadDone = []
+let uggSquadDone = []
+let genomeSquadDone = []
+let totalCards=[]
+
+var SquadsDone = [workSquadDone, talentSquadDone, uggSquadDone, genomeSquadDone]
+
 var result
 var trigger = true
-function trigger_hash_more(props){
+function trigger_hash_more(props) {
     if (props) {
         result_hash_more = true
         trigger = true
@@ -108,32 +123,73 @@ function trigger_hash_more(props){
 }
 
 
-var result_hash_more = true
-var next_cursor = ''
-let workSquadDone = [];
-let talentSquadDone = []
-let uggSquadDone = []
-let genomeSquadDone = []
-
-var SquadsDone = [workSquadDone, talentSquadDone, uggSquadDone, genomeSquadDone]
-
-
-const getResults = async() =>{
-    /* result = await requestFunction(listSquads[0], done) */
-    while (result_hash_more != false) {
+ const getTalentResults = async function (req, res){
+    talentSquadDone = []
+    let i = 0;
+    trigger_hash_more(true);
+    while (result_hash_more == true) {
         if (trigger) {
             trigger_hash_more(false)
             trigger = false
         }
         result = await requestFunction(listSquads[0], done)
-        SquadsDone[0] = [...SquadsDone[0], result]
-
+        totalCards = [...totalCards, ...result.results]
+        console.log(101,JSON.stringify(totalCards.length));
+        talentSquadDone = [...talentSquadDone, result.results.length]
+        i++
     }
-    return result;
+
     
+
+    let filterCardsHigh = totalCards.filter(card =>{
+        let priority = typeof card.properties["Priority"] == undefined? '' : card.properties["Priority"];
+        if(priority!='' && typeof priority!='undefined'){
+            return priority.select.name == "High"
+        }
+        
+    })
+
+    let filterCardsMedium = totalCards.filter(card =>{
+        let priority = typeof card.properties["Priority"] == undefined? '' : card.properties["Priority"];
+        if(priority!='' && typeof priority!='undefined'){
+            return priority.select.name == "Medium"
+        }
+        
+    })
+
+/*    var filterResult = totalCards.filter((card)=>{
+        let highPriorityRegExp = new RegExp('High', 'gi');  
+        let priority = typeof card.properties["Priority"] == undefined? '' : card.properties["Priority"];
+        if(priority!='' && typeof priority!='undefined'){
+            return priority.select.name.match(highPriorityRegExp)
+        }
+        
+    }).map(card =>{
+        return card;
+    }) */
+    
+    console.log(100,filterCardsHigh.length);
+    console.log(222,totalCards.length);
+   
+    
+    
+
+    return res.status(200).json(totalCards.length)
+
+}
+
+    const saveDataTalent = async function(req, res){
+    let datajson= await cardDone.results();
+    console.log(datajson);
+    res.status(200).json(JSON.parse(datajson))
 }
 
 
 
 
-module.exports = getResults();
+module.exports = {
+    getTalentResults,
+    saveDataTalent
+}
+
+
